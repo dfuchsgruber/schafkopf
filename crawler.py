@@ -8,10 +8,6 @@ from getpass import getpass
 
 username = 'domi.erdnuss@gmx.de'
 password = getpass(f'Password for email "{username}": ')
-auth_token = 'Z5STjOrV1yB5bl3GPReyreya3O+kSu1sAaE7tLyYHK8='
-login_url = 'https://www.sauspiel.de/login'
-url = 'https://www.sauspiel.de'
-game = 'https://www.sauspiel.de/spiele/107679834.json'
 
 s = requests.Session()
 
