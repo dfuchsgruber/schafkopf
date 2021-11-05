@@ -73,7 +73,8 @@ class Game:
 
         # Initialize the agents
         self.agents = agents
-        self.players = set(np.random.choice(4, size=2, replace=False)) # TODO
+        self.players = None # Player and his partner
+        self.player = None # Player
 
         # Initialize rewards
         self.rewards = np.zeros((8, 4))
@@ -191,7 +192,10 @@ class Game:
             Which action a player took in a certain state.
         current_trick : ndarray, shape [4, 8]
             The idx of the trick that is not yet complete and requires an action for each state.
-
+        agent_cards : ndarray, shape [4, 8, 8]
+            All the cards that a player has in a given state. Cards that are already played are represented by 0.
+        player : ndarray, shape [4, 8]
+            Who is the player of the game (from perspective of player i).
         """
         # Zero will be padding
         agent_history = np.array(self.agent_history)
@@ -201,6 +205,8 @@ class Game:
         trick_buffer = np.ones((4, 8, 8, 1)) * np.nan
         actions = np.zeros((4, 8), dtype=np.int)
         buffer = np.ones((4, 8, 32, 2)) * np.nan
+        agent_cards = np.zeros((4, 8, 8), dtype=np.int) - 1
+        player = np.ones((4, 8), dtype=np.int) * self.player
 
         for agent in range(4):
             for i, turn in enumerate(np.where(agent_history == agent)[0]):
@@ -208,21 +214,24 @@ class Game:
                 buffer[agent, i, : turn, 0] = agent_history[ : turn]
                 trick_buffer[agent, i, : turn // 4, 0] = trick_history[ : turn // 4]
                 actions[agent, i] = card_history[turn]
+                agent_cards[agent, i, : 8 - i] = np.array(self.agent_cards[agent][i])
         buffer = buffer.reshape((4, 8, 8, 8)) # agent, sequence, trick, card in trick
         buffer = np.concatenate((buffer, trick_buffer), axis=3)
 
         if player_shifting:
             for agent in range(4): # It is always player 0 who needs to do an action.
                 buffer[agent, :, :, ::2] += 4 - agent
+                player[agent, :] += 4 - agent
+                np.seterr(invalid='ignore')
                 buffer[agent, :, :, ::2] %= 4
+                player[agent, :] %= 4
 
         buffer[:, :, :, ::2] += 32 # Player Tokens are offset by 32 
         buffer += 1 # 0 corresponds to padding
         actions += 1
+        agent_cards += 1
 
-        return np.nan_to_num(buffer, 0).astype(np.int), actions, np.arange(8).reshape((1, -1)).repeat(4, axis=0)
-
-
+        return np.nan_to_num(buffer, 0).astype(np.int), actions, np.arange(8).reshape((1, -1)).repeat(4, axis=0), np.array(agent_cards), player
 
 class Rufspiel(Game):
     """ Rufspiel. """
@@ -243,7 +252,7 @@ class Rufspiel(Game):
         self.players = set(agent_idx for agent_idx in range(4) if self.partner_ace in self.agent_cards[agent_idx][0])
         self.players.add(self.player)
         assert len(self.players) == 2
-        
+
     def _get_eligible_cards(self, cards, turn_history):
         eligible_cards = super()._get_eligible_cards(cards, turn_history)
         if self.partner_ace in eligible_cards and not self.partner_ace_searched:
@@ -276,6 +285,8 @@ class Rufspiel(Game):
         super().from_json(json)
         self.color = None
         for record in json:
+            if record['type'] == 'youGotCards':
+                assert len(record['cards']) % 4 == 0
             if record['type'] == 'playsTheGame':
                 assert record['gameType'] == 1
                 self.color = {'E' : 0, 'G' : 1, 'S' : 3}[record['suit']]
@@ -326,6 +337,9 @@ def print_replace_buffer(replay_buffer, actions, current_trick):
             print(f'Action taken: {e_to_str(actions[agent, sequence_idx])}')
 
 
+
+
+"""
 agents = [RandomAgent() for _ in range(4)]
 #game = Game(standard_trumps, agents)
 game = Rufspiel(agents, None, None)
@@ -335,3 +349,4 @@ with open('games/game_1000039442.json') as f:
 # game.print_game()
 buffer, actions, current_trick = game.get_replay_buffer()
 print_replace_buffer(buffer, actions, current_trick)
+"""

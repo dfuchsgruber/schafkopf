@@ -23,8 +23,8 @@ r = s.post('https://www.sauspiel.de/login', data=login_data)
 # Binary search to find first non existent game
 os.listdir('games')
 
-for i in tqdm(range(100000)):
-    if i < 30463:
+for i in tqdm(range(100000, 2000000)):
+    if i < 30466:
         continue
     game_idx = 1000000000 + i
     r = s.get(f'https://www.sauspiel.de/spiele/{game_idx}.json')
